@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>単語クイズ</title>
+<!-- Google Fonts削除（オフライン対応のため）。システムフォントで代替 -->
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: #f4ede2;
+    font-family: 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif;
+    color: #1a1a1a;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  body {
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(180,140,90,0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(80,50,30,0.06) 0%, transparent 50%);
+    display: flex;
+    flex-direction: column;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+
+  .header {
+    padding: 20px 24px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+  }
+  .title {
+    font-family: 'Cormorant Garamond', 'Georgia', 'Times New Roman', serif;
+    font-style: italic;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    color: #2a1f15;
+  }
+  .counter {
+    font-family: 'Cormorant Garamond', 'Georgia', 'Times New Roman', serif;
+    font-size: 16px;
+    color: #6b5840;
+    letter-spacing: 0.1em;
+  }
+
+  .progress {
+    height: 2px;
+    background: rgba(0,0,0,0.08);
+    position: relative;
+    overflow: hidden;
+  }
+  .progress-bar {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    background: linear-gradient(90deg, #8b6b3d, #3a2818);
+    width: 0%;
+    transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .card-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    perspective: 1200px;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 480px;
+    min-height: 60vh;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .card.flipped { transform: rotateY(180deg); }
+
+  .face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    background: #faf5ec;
+    border: 1px solid rgba(0,0,0,0.15);
+    border-radius: 4px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.6) inset,
+      0 20px 40px -20px rgba(60,40,20,0.25),
+      0 4px 12px -4px rgba(60,40,20,0.15);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 32px 28px;
+    overflow-y: auto;
+  }
+  .face::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border: 1px solid rgba(80,55,30,0.15);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .face-back {
+    transform: rotateY(180deg);
+    background: #2a1f15;
+    color: #f4ede2;
+    border-color: #1a120a;
+  }
+  .face-back::before {
+    border-color: rgba(244,237,226,0.2);
+  }
+
+  .label {
+    font-family: 'Cormorant Garamond', 'Georgia', 'Times New Roman', serif;
+    font-style: italic;
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    opacity: 0.5;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  .content {
+    font-size: clamp(20px, 5vw, 30px);
+    line-height: 1.5;
+    text-align: center;
+    font-weight: 600;
+    word-break: break-word;
+  }
+  .face-back .content {
+    font-weight: 400;
+    font-size: clamp(16px, 4vw, 22px);
+  }
+  .hint {
+    margin-top: 24px;
+    font-family: 'Cormorant Garamond', 'Georgia', 'Times New Roman', serif;
+    font-size: 12px;
+    letter-spacing: 0.25em;
+    text-align: center;
+    opacity: 0.4;
+    text-transform: uppercase;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 24px 20px;
+    gap: 12px;
+    border-top: 1px solid rgba(0,0,0,0.12);
+  }
+  .btn {
+    background: transparent;
+    border: 1px solid rgba(0,0,0,0.25);
+    color: #2a1f15;
+    padding: 10px 18px;
+    font-family: 'Cormorant Garamond', 'Georgia', 'Times New Roman', serif;
+    font-size: 14px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 2px;
+    flex: 1;
+    max-width: 130px;
+  }
+  .btn:active {
+    background: #2a1f15;
+    color: #f4ede2;
+    transform: scale(0.97);
+  }
+  .btn-next {
+    background: #2a1f15;
+    color: #f4ede2;
+    border-color: #2a1f15;
+  }
+  .btn-next:active {
+    background: #f4ede2;
+    color: #2a1f15;
+  }
+
+  .done {
+    text-align: center;
+    padding: 40px 24px;
+  }
+  .done h2 {
+    font-family: 'Cormorant Garamond', 'Georgia', 'Times New Roman', serif;
+    font-style: italic;
+    font-size: 32px;
+    margin-bottom: 12px;
+  }
+  .done p {
+    opacity: 0.6;
+    margin-bottom: 28px;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .face > * { animation: fadeIn 0.5s ease both; }
+  .face > *:nth-child(2) { animation-delay: 0.1s; }
+  .face > *:nth-child(3) { animation-delay: 0.2s; }
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="単語帳">
+<meta name="theme-color" content="#3d2817">
+<link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+  <div class="header">
+    <div class="title">単語帳</div>
+    <div class="counter" id="counter">— / —</div>
+  </div>
+  <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+  <div class="card-area" id="cardArea">
+    <div class="card" id="card">
+      <div class="face face-front">
+        <div class="label">Question</div>
+        <div class="content" id="frontContent"></div>
+        <div class="hint">tap to reveal</div>
+      </div>
+      <div class="face face-back">
+        <div class="label">Answer</div>
+        <div class="content" id="backContent"></div>
+        <div class="hint">tap for next</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="shuffleBtn">SHUFFLE</button>
+    <button class="btn btn-next" id="nextBtn">NEXT →</button>
+  </div>
+
+<script>
+const allQuestions = [
+  { q: "previous ⇔ ?", a: "following（後の・次の）／反対は previous（前の）" },
+  { q: "subsequently", a: "その後・続いて" },
+  { q: "latter", a: "後者(の)／前者は former" },
+  { q: "insist / propose の後ろのthat節の動詞の形は？", a: "should + 動詞の原形(または原形のみ)" },
+  { q: "「~すべきだ」の意味でthat節に should do をとる動詞群", a: "recommend, advise, insist, demand, request, order, decide, determine" },
+  { q: "readily", a: "すぐに・容易に・快く" },
+  { q: "undertake", a: "引き受ける・着手する" },
+  { q: "prestige", a: "名声・威信" },
+  { q: "correspond to / with", a: "to:〜に相当する／with:〜と一致する・文通する" },
+  { q: "tense", a: "緊張した(形容詞)" },
+  { q: "tension", a: "緊張(名詞)" },
+  { q: "intend", a: "意図する(動詞)" },
+  { q: "intention", a: "意図(名詞)" },
+  { q: "intense", a: "激しい・強烈な" },
+  { q: "intensity", a: "強さ・強度" },
+  { q: "アノード (Anode)", a: "酸化反応が起こる電極(電子を失う・放出する)" },
+  { q: "カソード (Cathode)", a: "還元反応が起こる電極(電子を受け取る)" },
+  { q: "ビウレット反応の条件と結果", a: "トリペプチド以上のペプチド + 硫酸銅(II)水溶液 + NaOHaq → 赤紫色" },
+  { q: "アルカン + Cl₂ + 光", a: "塩素化(置換反応):HがClに置き換わる" },
+  { q: "アルケン + H₂ + 触媒", a: "付加反応:二重結合に水素が付加してアルカンになる" },
+  { q: "アルコール + 濃硫酸", a: "脱水反応:水が抜けてアルケンが生成(分子内脱水)" },
+  { q: "ベンゼン + Cl₂ + 鉄粉", a: "置換反応:クロロベンゼンが生成(ハロゲン化)" },
+  { q: "ベンゼン + H₂ + 触媒(Ni等)", a: "付加反応:シクロヘキサンが生成" },
+  { q: "スチュワートの定理", a: "辺BCをm:nに内分する点をPとするとき、n·AB² + m·AC² = (m+n)·AP² + n·BP² + m·CP²" },
+  { q: "リチウムイオン電池の正極の反応式", a: "LiCoO₂ → Li₁₋ₓCoO₂ + xLi⁺ + xe⁻ (放電時は逆向き)" },
+  { q: "リチウムイオン電池の負極の反応式", a: "6C + xLi⁺ + xe⁻ → LiₓC₆ (放電時は逆向き)" },
+  { q: "contemporary", a: "同時代の・現代の" },
+  { q: "temporary", a: "一時的な" },
+  { q: "stature", a: "身長・(社会的)地位" },
+  { q: "height", a: "高さ・身長" },
+  { q: "reliable", a: "信頼できる" },
+  { q: "reliably", a: "確実に" },
+  { q: "sufficiency", a: "十分(な量)" },
+  { q: "deficiency", a: "欠乏・不足" },
+  { q: "immune to 〜", a: "〜に免疫がある・〜の影響を受けない" },
+  { q: "recurrence", a: "再発・再起" },
+  { q: "regret", a: "後悔(する)・残念に思う" },
+  { q: "convert", a: "変える・変換する" },
+  { q: "revert", a: "戻る・復帰する" },
+  { q: "alloy", a: "合金" },
+  { q: "the case", a: "場合・事件・事実" },
+  { q: "considering that 〜", a: "〜であることを考えると" },
+  { q: "mutate", a: "変異する" },
+  { q: "combustion", a: "燃焼" },
+  { q: "nearby", a: "近くの・身近な" },
+  { q: "deficiencies", a: "不足・欠乏(複数形)" },
+  { q: "antibiotic", a: "抗生物質" },
+  { q: "prehistoric", a: "有史以前の・先史時代の" },
+  { q: "droughts", a: "干ばつ" },
+  { q: "clustered", a: "群がった・集まった" },
+  { q: "responsible for A", a: "Aの責任がある・Aの原因だ" },
+  { q: "advent", a: "到来・出現" },
+  { q: "a full complement of A", a: "全量のA・完全なAの一揃い" },
+  { q: "avant-garde", a: "前衛(の)" },
+  { q: "drop by as much as six inches", a: "6インチも下がる・落とす" },
+  { q: "appear though", a: "〜のように見える" },
+  { q: "approach", a: "近づく・接近する" },
+  { q: "again / once again", a: "再び／もう一度" },
+  { q: "as for / as far as", a: "as for:〜に関しては／as far as:〜の限り" },
+  { q: "well-fed", a: "栄養が十分に行き渡った・よく食べている" },
+  { q: "before long", a: "まもなく・やがて" },
+  { q: "sizable", a: "大きな・かなりの大きさの" },
+  { q: "as much as A", a: "Aほど多くのもの・Aもの量" },
+  { q: "so much A", a: "多くのA" },
+  { q: "persist", a: "固執する・滞る・継続する" },
+  { q: "population", a: "人口・集団" },
+  { q: "A like B の2つの意味", a: "①Bのような A／②Bのように、A" },
+  { q: "contagious", a: "(接触)伝染性の" },
+  { q: "wildfire", a: "野火・山火事" },
+  { q: "ultimately", a: "最終的に・究極的に" },
+  { q: "A — that is 〜", a: "〜というA(言い換え・挿入)" },
+  { q: "expose", a: "(光・危険などに)さらす・暴露する" },
+  { q: "or as yet unexposed", a: "あるいはまだ晒されていない" },
+  { q: "for a moment / for a second / for a minute", a: "少しの間・ちょっと" },
+  { q: "for a while / for the time being", a: "しばらくの間・当分の間" },
+  { q: "retain", a: "保持する・保つ" },
+  { q: "retail", a: "小売り" },
+  { q: "out of business", a: "倒産して・廃業して" },
+  { q: "light", a: "軽い・光・明るい(文脈で使い分け)" },
+  { q: "persecution", a: "迫害" },
+  { q: "qualify for A", a: "Aの資格を得る" },
+  { q: "have a license", a: "免許を持っている" },
+  { q: "eradicate", a: "根絶する" },
+  { q: "indicate", a: "示す" },
+  { q: "indulge", a: "ふける・甘やかす" },
+  { q: "eliminate", a: "排除する・除去する" },
+  { q: "chief", a: "主要な・最も重要な／長" },
+  { q: "contract", a: "契約・契約する／縮む" },
+  { q: "free A of B", a: "AをBから解放する" },
+  { q: "a fair number of A", a: "かなり多くのA" },
+  { q: "triumph", a: "勝利・大成功" },
+  { q: "engage in A", a: "Aに従事する・関わる" },
+  { q: "unpleasant", a: "不快な" },
+  { q: "potent", a: "強力な・効力のある" },
+  { q: "capsule", a: "カプセル" },
+  { q: "imply that 〜", a: "〜ということを暗示する" },
+  { q: "in a 〜 sense", a: "〜の意味で・ある意味では" },
+  { q: "presume", a: "推定する・仮定する" },
+  { q: "assume", a: "想定する・引き受ける" },
+  { q: "grateful to 人 / grateful for 物", a: "人に感謝する／物事に感謝する" },
+  { q: "cooperative", a: "協力的な" },
+  { q: "companion", a: "仲間・連れ" },
+  { q: "compromise", a: "妥協する・妥協" },
+  { q: "lately", a: "最近(完了形と共に)" },
+  { q: "latest / the latest", a: "最新の" },
+  { q: "naïve", a: "純真な・世間知らずの" },
+  { q: "provided (that)", a: "もし〜ならば(条件)" },
+  { q: "close (around here)", a: "この辺りで近い・身近な" },
+  { q: "associate A with B", a: "AからBを連想する・AとBを結びつける" },
+  { q: "assert", a: "主張する" },
+  { q: "shift A on to B", a: "Aの責任をBに押しつける" },
+  { q: "shift A to B", a: "AをBに切り替える" },
+  { q: "yet (肯定文中)", a: "〜なのに・しかし(逆接)" },
+  { q: "appetite for A", a: "Aに対する食欲・欲求" },
+  { q: "organ", a: "器官・臓器・オルガン" },
+  { q: "the media favor 〜", a: "メディアは〜を好む" },
+  { q: "void", a: "空虚・無効の" },
+  { q: "interpret A as B", a: "AをBと解釈する" },
+  { q: "It will cause 〜 from now on", a: "これからは〜を引き起こすだろう" },
+  { q: "possible", a: "可能な・起こり得る" },
+  { q: "possibly", a: "もしかすると・あるいは" },
+  { q: "in my terms", a: "私の言葉で言えば・私なりの表現で" },
+  { q: "context", a: "文脈・状況" },
+  { q: "the end / my end", a: "目的／私の目的・私の側" },
+  { q: "accomplish", a: "成し遂げる・達成する" },
+  { q: "point out 〜 to A", a: "Aに〜を指摘する" },
+  { q: "mind", a: "気にする・心" },
+  { q: "subtle nuance of A", a: "Aの微妙なニュアンス" },
+  { q: "except / except for A / except SV", a: "〜を除いて／Aを除いては／SVを除いては" },
+  { q: "brush", a: "ブラシ・(軽く)触れる" },
+  { q: "dread", a: "(ひどく)恐れる" },
+  { q: "careless", a: "不注意な" },
+  { q: "carefree", a: "気楽な・無頓着な" },
+  { q: "steadily", a: "着実に" },
+  { q: "steady", a: "安定した" },
+  { q: "in turn", a: "順番に・今度は" },
+  { q: "in return", a: "お返しに・代わりに" },
+  { q: "out of order", a: "故障した・順序が狂って" },
+  { q: "morally", a: "道徳的に・モラル的に" },
+  { q: "It's out of order morally", a: "それはモラル的におかしい" },
+  { q: "vicious", a: "悪意のある・凶悪な" },
+  { q: "seek to do / sought to do", a: "〜しようとする／〜しようとした(過去形)" },
+  { q: "suffering", a: "苦痛・苦悩" },
+  { q: "render OC", a: "OをC(の状態)にする" },
+  { q: "hinder", a: "妨げる" },
+  { q: "There is no sense / point (in) doing", a: "〜しても無意味だ" },
+  { q: "It's no use 〜ing", a: "〜しても無駄だ" },
+  { q: "reproductive", a: "生殖の・繁殖の" },
+  { q: "relieve", a: "和らげる・軽減する・安心させる" },
+  { q: "develop this illness", a: "この病気を発症する" },
+  { q: "fine-tune", a: "微調整する" },
+  { q: "theory", a: "理論" },
+  { q: "withdraw", a: "撤退する・引き出す" },
+  { q: "examine", a: "調べる・検査する" },
+  { q: "message", a: "メッセージ・伝言" },
+  { q: "announce", a: "発表する" },
+  { q: "press conference", a: "記者会見" },
+  { q: "citizen", a: "市民" },
+  { q: "in itself", a: "それ自体" },
+  { q: "arrange", a: "手配する・並べる" },
+  { q: "take A into consideration", a: "Aを考慮に入れる" },
+  { q: "pose", a: "(問題を)提起する・ポーズをとる" },
+  { q: "notice SV", a: "SがVするのに気づく" },
+  { q: "Instead I play the guitar", a: "代わりに私はギターを弾く" },
+  { q: "contemplate", a: "熟考する・じっくり考える" },
+  { q: "remedy", a: "治療法・解決策" },
+  { q: "He had his way", a: "彼は自分の思い通りにした" },
+  { q: "acute", a: "鋭い・激しい・急性の" },
+  { q: "miserable", a: "惨めな" },
+  { q: "misery", a: "悲惨・不幸" },
+  { q: "in a position to do", a: "〜できる立場にある" },
+  { q: "witness", a: "目撃する・目撃者" },
+  { q: "rural", a: "田舎の・農村の" },
+  { q: "vigorous", a: "精力的な・活発な" },
+  { q: "A result in B", a: "AがBという結果になる" },
+  { q: "B result from A", a: "BはAから生じる" },
+  { q: "cry out for 〜", a: "〜を切に求める・〜が必要だ" },
+  { q: "heart failure", a: "心不全" },
+  { q: "lower back pain", a: "腰痛" },
+  { q: "beneath A", a: "Aの下に・Aに値しない" },
+  { q: "bereft of A", a: "Aを奪われた・Aを失った" },
+  { q: "atonement", a: "償い・贖罪" },
+  { q: "aloneness", a: "孤独" },
+  { q: "attention disorder", a: "注意障害" },
+  { q: "besides", a: "〜に加えて(肯定)" },
+  { q: "except for A", a: "Aを除いては" },
+  { q: "nevertheless", a: "それにもかかわらず" },
+  { q: "go wrong", a: "うまくいかない・間違う" },
+  { q: "lose way", a: "道に迷う" },
+  { q: "settle down", a: "落ち着く・定住する" },
+  { q: "settle for A", a: "Aで妥協する・Aで我慢する" },
+  { q: "produce / product", a: "生産する／製品" },
+  { q: "confuse A with B", a: "AとBを混同する" },
+  { q: "simply put", a: "簡単に言えば" },
+  { q: "amiable", a: "愛想の良い・好感のもてる" },
+  { q: "animate", a: "生命を吹き込む・活気づける" },
+  { q: "gravity", a: "重力・重大さ" },
+  { q: "grave", a: "重大な・墓" },
+  { q: "devote", a: "捧げる・専念する" },
+  { q: "rely on A", a: "Aに頼る・Aを当てにする" },
+  { q: "nearly", a: "ほとんど・もう少しで" },
+  { q: "be primed on A", a: "Aについて事前に教えられている" },
+  { q: "assertion", a: "主張" },
+  { q: "similarly", a: "同様に" },
+  { q: "arbitrary", a: "恣意的な・任意の" },
+  { q: "arbitrate", a: "仲裁する" },
+  { q: "convince", a: "説得する・納得させる" },
+  { q: "case", a: "場合・事例・訴訟" },
+  { q: "curse", a: "呪い・呪う" },
+  { q: "cursed", a: "呪われた" },
+  { q: "carve", a: "彫る・刻む" },
+  { q: "curve", a: "カーブ・曲線" },
+  { q: "acoustic", a: "音響の・聴覚の" },
+  { q: "philosopher", a: "哲学者" },
+  { q: "millennium / millennia", a: "千年(間)／その複数形" },
+  { q: "every now and then", a: "時々" },
+  { q: "convict", a: "有罪判決を下す・囚人" },
+  { q: "convention", a: "因習・大会・慣習" },
+  { q: "controversy", a: "論争" },
+  { q: "assemble", a: "組み立てる・集合させる" },
+  { q: "in part", a: "一部は・ある程度" },
+  { q: "instinctively", a: "本能的に" },
+  { q: "mathematics", a: "数学" },
+  { q: "institution", a: "制度・施設" },
+  { q: "establishment", a: "設立・確立" },
+  { q: "a series of A", a: "一連のA" },
+  { q: "curvy", a: "曲がりくねった" },
+  { q: "swiftly", a: "素早く" },
+  { q: "swift", a: "素早い" },
+  { q: "present A with B", a: "AにBを贈る・提示する" },
+  { q: "bring A to mind", a: "Aを思い出す・思い起こさせる" },
+  { q: "worthwhile", a: "価値のある・やりがいのある" },
+  { q: "statistics", a: "統計(学)" },
+  { q: "aloud", a: "声に出して" },
+  { q: "prefer A to B", a: "BよりAを好む" },
+  { q: "gratifying", a: "満足のいく" },
+  { q: "gratify", a: "満足させる" },
+  { q: "competitor", a: "競争相手・競技者" },
+  { q: "favorite", a: "お気に入りの" },
+  { q: "reality", a: "現実" },
+  { q: "fantasy", a: "空想" },
+  { q: "pastime", a: "娯楽・気晴らし" },
+  { q: "passive", a: "受動的な・消極的な" },
+  { q: "There is no case", a: "そんな例はない・該当しない" },
+  { q: "have yet to do", a: "まだ〜していない" },
+  { q: "remain to be done", a: "まだ〜されていない・〜される必要がある" },
+  { q: "There (副詞) you can find a section", a: "そこに、ある区画を見つけることができる" },
+  { q: "a sense of community and belonging", a: "連帯感と帰属意識" },
+  { q: "A, yet B, C", a: "AにもかかわらずBなCは(逆接)" },
+  { q: "coordination", a: "調整・連携" },
+  { q: "general", a: "一般の・全般的な" },
+  { q: "generate", a: "生成する・生み出す" },
+  { q: "special", a: "特別な" },
+  { q: "spatial", a: "空間の" },
+  { q: "sheer", a: "純粋な・全くの" },
+  { q: "accompany", a: "同伴する・付随する" },
+  { q: "cooperate", a: "協力する" },
+  { q: "awareness", a: "認識(能力)・意識" },
+  { q: "correspond (to)", a: "〜に対応する" },
+  { q: "base of the mountain", a: "山のふもと" },
+  { q: "foremost", a: "最初の・第一の" },
+  { q: "endeavor", a: "努力(する)" },
+  { q: "How far have you progressed?", a: "どこまで進みましたか？" },
+  { q: "cliff", a: "崖" },
+  { q: "troop", a: "軍隊" },
+  { q: "slope", a: "坂・傾斜" },
+  { q: "A, B, which 〜", a: "AはBであり、〜(関係代名詞・非制限)" },
+  { q: "make adjustments to A", a: "Aに調整を加える" },
+  { q: "sleep", a: "眠る・眠り" },
+  { q: "hormone", a: "ホルモン" },
+  { q: "thrive in 〜", a: "〜で成長する・繁栄する" },
+  { q: "prestigious", a: "名声のある・一流の" },
+  { q: "on track", a: "順調に・軌道上で" },
+  { q: "preoccupied", a: "夢中になっている・心を奪われている" },
+  { q: "memorize", a: "暗記する" },
+  { q: "memorable", a: "記憶に残る" },
+  { q: "publicity", a: "宣伝・知名度" },
+  { q: "curriculum", a: "カリキュラム・教育課程" },
+  { q: "district", a: "地区" },
+  { q: "in charge of 〜", a: "〜を担当して" },
+  { q: "on behalf of 〜", a: "〜を代表して・〜のために" },
+  { q: "fine", a: "罰金・素晴らしい" },
+  { q: "enroll", a: "登録する・入学する" },
+  { q: "note (動詞)", a: "注意する・注目する" },
+  { q: "notable", a: "注目に値する" },
+  { q: "religion", a: "宗教" },
+  { q: "politics", a: "政治" },
+  { q: "academic", a: "学問の・学術的な" },
+  { q: "almost ⇔ hardly", a: "ほとんど ⇔ ほとんど〜ない" },
+  { q: "rarely", a: "めったに〜ない" },
+  { q: "cover / coverage", a: "覆う・報道する／報道・補償範囲" },
+  { q: "offend", a: "怒らせる・気分を害する" },
+  { q: "odor", a: "におい・臭気" },
+  { q: "adapt", a: "適応する" },
+  { q: "adopt", a: "採用する・養子にする" },
+  { q: "adept", a: "熟達した" },
+  { q: "technology", a: "技術" },
+  { q: "controversial", a: "論争を呼ぶ" },
+  { q: "debatable", a: "議論の余地がある(=controversial)" },
+  { q: "relate", a: "関連付ける" },
+  { q: "prohibit / ban / forbid", a: "禁止する(類義)" },
+  { q: "adjust", a: "調整する" },
+  { q: "aware", a: "気づいて" },
+  { q: "perception", a: "知覚・認識" },
+  { q: "perspective", a: "見方・視点" },
+  { q: "poll", a: "世論調査・投票" },
+  { q: "bill", a: "請求書・法案" },
+  { q: "abolish", a: "廃止する" },
+  { q: "laboratory", a: "実験室" },
+  { q: "mortal", a: "死すべき・致命的な" },
+  { q: "deadly", a: "致命的な" },
+  { q: "endorse", a: "支持する・(裏書きで)承認する" },
+  { q: "afflict", a: "苦しめる・悩ます" },
+  { q: "conflict", a: "対立・衝突" },
+  { q: "disturb", a: "邪魔する・乱す" },
+  { q: "benefit", a: "利益(を得る)" },
+  { q: "consequently", a: "結果として・したがって" },
+  { q: "consequent", a: "結果として起こる" },
+  { q: "consequence", a: "結果・帰結" },
+  { q: "sequence", a: "順序・連続" },
+  { q: "sequential", a: "一連の・連続的に起こる" },
+  { q: "subsequent", a: "その後の・続いて起こる" },
+  { q: "disorder", a: "障害・無秩序" },
+  { q: "figure", a: "数字・図形・人物" },
+  { q: "cost", a: "費用・原価" },
+  { q: "cover", a: "覆う・報道する" },
+  { q: "bear", a: "(子供を)産む・耐える・運ぶ" },
+  { q: "customs ⇔ custom", a: "税関 ⇔ 習慣" },
+  { q: "drive", a: "運転する・エネルギー・動因" },
+  { q: "bulletin", a: "公報・速報" },
+  { q: "degree", a: "度・程度／学位・等級" },
+  { q: "Diet", a: "国会／食事" },
+  { q: "direct", a: "直接の／指示する・向ける" },
+  { q: "direct A toward B", a: "AをBに向ける" },
+  { q: "due to pay", a: "支払い予定で" },
+  { q: "due to 〜ing", a: "〜のせいで" },
+  { q: "due at / in 〜", a: "〜に到着予定の・期日が〜の" },
+  { q: "lead", a: "導く・先導する" },
+  { q: "face", a: "顔・直面する" },
+  { q: "spare", a: "予備の・割く・容赦する" },
+  { q: "sweet", a: "甘い" },
+  { q: "stiff", a: "硬い・こわばった" },
+  { q: "tear", a: "破る／涙(発音で意味が変わる)" },
+  { q: "a complex expression", a: "複雑な表現" },
+  { q: "migrate", a: "移動する・移住する" },
+  { q: "immigrate", a: "(外から内へ)移住してくる" },
+  { q: "emigrate", a: "(内から外へ)移住する" },
+  { q: "in three words", a: "三言で・短く言えば" },
+  { q: "a long passage", a: "長文・長い一節" },
+  { q: "a list of terms", a: "用語一覧" },
+  { q: "sort out", a: "区別する・整理する" },
+  { q: "one respect", a: "一点(で)・ある観点で" },
+  { q: "resort to 〜", a: "〜に頼る・〜という手段に訴える" },
+  { q: "nature", a: "自然・本質" },
+  { q: "naturally", a: "自然に・当然" },
+  { q: "natural", a: "自然な・当然の" },
+  { q: "wife", a: "妻" },
+  { q: "pure", a: "純粋な" },
+  { q: "relative", a: "親戚／相対的な" },
+  { q: "relevant", a: "関連のある" },
+  { q: "equivalent", a: "同等の・等しい" },
+  { q: "intelligent", a: "賢明な" },
+  { q: "intelligence", a: "知性・知能・情報" },
+  { q: "practice", a: "実践する・開業する・営む" },
+  { q: "at once", a: "すぐに・一度に" },
+  { q: "at all", a: "(否定で)全く〜ない" },
+  { q: "equip", a: "装備する" },
+  { q: "once and for all", a: "きっぱりと・これを最後に" },
+  { q: "means", a: "手段・資産" },
+  { q: "measure", a: "測る・対策・手段" },
+  { q: "The Japanese / The people are 〜", a: "日本人は／その人々は(集合名詞、複数扱い)" },
+  { q: "depict", a: "描く・描写する" },
+  { q: "disguise", a: "変装させる・隠す" },
+  { q: "disgust", a: "反感・嫌悪" },
+  { q: "(happy with) this deal", a: "この取引に満足している" },
+  { q: "deal", a: "取引・対応・(big deal=大事)" },
+  { q: "picture", a: "絵・写真・思い描く" },
+  { q: "hold society together", a: "社会を一つにまとめる" },
+  { q: "across the spectrum", a: "社会階層全体に広がる・あらゆる範囲で" },
+  { q: "fellow", a: "同僚・仲間" },
+  { q: "hand = pass", a: "hand=手渡す(=passと同義)" },
+  { q: "persuasive", a: "説得力がある" },
+  { q: "offended", a: "気分を害された・攻撃された" },
+  { q: "scholar", a: "学者" },
+  { q: "disturbance", a: "破壊・騒動・妨害" },
+  { q: "priority", a: "優先・優先事項" },
+  { q: "prior", a: "前の・優先する" },
+  { q: "A arguing 〜", a: "〜と主張するA" },
+  { q: "public health", a: "公衆衛生" },
+  { q: "Institute for A studies", a: "A研究所・A研究施設" },
+  { q: "proper", a: "適切な" },
+  { q: "property", a: "財産・性質" },
+  { q: "moderate", a: "適度な・穏やかな" },
+  { q: "breakdown", a: "故障・崩壊" },
+  { q: "incentive", a: "動機・刺激" },
+  { q: "expect", a: "期待する・想定する" },
+  { q: "believe", a: "考える・信じる" },
+  { q: "presented", a: "見せられる・示される" },
+  { q: "margin = gap", a: "差・隔たり(margin と gap は同義)" },
+  { q: "superstitiously", a: "迷信的に" },
+  { q: "superstition", a: "迷信" },
+  { q: "the terms 〜", a: "〜という言葉・用語" },
+  { q: "act strange", a: "奇妙な行動をとる" },
+  { q: "A as 〜", a: "〜のようなA" },
+  { q: "rather than the way it is", a: "それのありのままの姿よりも(むしろ)" },
+  { q: "nuisance", a: "迷惑・厄介者" },
+  { q: "regime", a: "政権・体制" },
+  { q: "resume", a: "再開する／履歴書" },
+  { q: "threat", a: "脅威" },
+  { q: "threaten", a: "脅す" },
+  { q: "submit to 〜", a: "〜に服従する・〜に提出する" },
+  { q: "compel", a: "強いる・強要する" },
+  { q: "crucial", a: "重要な・決定的な" },
+  { q: "faith", a: "信仰・信頼" },
+  { q: "fluent", a: "流暢な" },
+  { q: "starve", a: "飢える" },
+  { q: "reconcile", a: "和解する・調和させる" },
+  { q: "verge", a: "瀬戸際・端" },
+  { q: "surge", a: "急に増す・押し寄せる" },
+  { q: "purge", a: "浄化する・粛清する" },
+  { q: "at best", a: "良くても・せいぜい" },
+  { q: "at any rate", a: "とにかく・いずれにせよ" },
+  { q: "rate", a: "率・場合・評価する" },
+  { q: "badly off", a: "貧乏で・暮らし向きが悪い" },
+  { q: "benevolent", a: "慈悲深い・親切な" },
+  { q: "internationalization", a: "国際化" },
+  { q: "interpretation", a: "解釈・通訳" },
+  { q: "representative", a: "代表者・代表的な" },
+  { q: "consequentially", a: "結果として" },
+  { q: "It's a must", a: "絶対に必要なものだ" },
+  { q: "work out", a: "運動する・うまくいく・解決する" },
+  { q: "one of these days", a: "近いうちに・そのうち" },
+  { q: "regard", a: "尊敬・配慮・〜とみなす" },
+  { q: "obsolete", a: "時代遅れの" },
+  { q: "out of date", a: "時代遅れの" },
+  { q: "up to date", a: "最新の" },
+  { q: "of two minds", a: "迷っている・決めかねている" },
+  { q: "ambivalent", a: "相反する感情を持つ・どっちつかずの" },
+  { q: "be apathetic about 〜", a: "〜に無関心である" },
+  { q: "sympathy", a: "同情・共感" },
+  { q: "comprehend", a: "理解する" },
+  { q: "apprehend", a: "感じる・つかむ・逮捕する" },
+  { q: "be apprehensive about 〜", a: "〜を心配する(=be anxious about)" },
+  { q: "be anxious to do", a: "〜したがる・切望する" },
+  { q: "astound / astounded", a: "ひどく驚かせる／驚かされた" },
+  { q: "staggered", a: "驚いた・よろめいた" },
+  { q: "stuck", a: "行き詰まった・動けない" },
+  { q: "at a loss", a: "途方に暮れて・困って" },
+  { q: "gently", a: "穏やかに" },
+  { q: "at fault", a: "過失で・責任がある" },
+  { q: "at stake", a: "危機にある・賭けられている" },
+  { q: "burned down", a: "全焼する" },
+  { q: "bent on 〜", a: "〜に熱中している・決意している" },
+  { q: "be beside oneself", a: "我を忘れる(怒り・喜び等で)" },
+  { q: "by birth", a: "生まれつき" },
+  { q: "out of work", a: "失業して" },
+  { q: "comfort", a: "慰める・快適さ" },
+  { q: "reckless", a: "無謀な・無鉄砲な" },
+  { q: "be cut out for 〜", a: "〜に向いている・適している" },
+  { q: "envious", a: "羨ましがる・嫉妬深い" },
+  { q: "to my advantage", a: "自分に有利に" },
+  { q: "grateful", a: "ありがたく思う・感謝する" },
+  { q: "true of 〜", a: "〜に当てはまる" },
+  { q: "responsible for 〜", a: "〜に責任がある・〜担当の" },
+  { q: "bear in mind", a: "心に留めておく" },
+  { q: "bear witness to 〜", a: "〜を証言する" },
+  { q: "worn out", a: "使い古した・疲れ果てた" },
+  { q: "favorable", a: "好意的な・有利な" },
+  { q: "be inclined to do", a: "〜する傾向がある(=prone)" },
+  { q: "prone", a: "〜しがちな・〜の傾向がある" },
+  { q: "one another", a: "お互いに" },
+  { q: "branch", a: "枝・支店・支部" },
+  { q: "definitely", a: "確かに・明確に" },
+  { q: "one after another", a: "次々と" },
+  { q: "get rid of 〜", a: "〜を取り除く・厄介払いする" },
+  { q: "So am I / Me too", a: "私もそうです(肯定への同意)" },
+  { q: "Neither am I / Me neither / Nor am I", a: "私もそうではない(否定への同意)" },
+  { q: "immigrant", a: "(外から内に来た)移民・移住者" },
+  { q: "emigrant", a: "(内から外に出ていく)移民・移住者" },
+  { q: "congregate", a: "集まる・群がる" },
+  { q: "saliva", a: "唾液" },
+  { q: "terms", a: "用語・条件・関係" },
+  { q: "from the inside out", a: "徹底的に・内側から外まで" },
+  { q: "inside out", a: "裏返し・徹底的に" },
+  { q: "right away", a: "すぐに(時間的)" },
+  { q: "right (here)", a: "すぐここに・ちょうど(場所的)" },
+  { q: "walk right by A", a: "Aのすぐ近くを通り過ぎる" },
+  { q: "deduce / infer", a: "推測する・推論する" },
+  { q: "subsume", a: "包摂する・包含する" },
+  { q: "cause / reason", a: "原因／理由" },
+  { q: "The reason is + 形容詞", a: "理由はもっともだ・成程な" },
+  { q: "incidentally", a: "ついでに・付随して" },
+  { q: "one part of A", a: "Aのある所・Aの一部分" },
+  { q: "A is evidence for B", a: "AはBを裏付ける証拠だ" },
+  { q: "formulated", a: "配合された・公式化された" },
+  { q: "formula", a: "公式・処方" },
+  { q: "as 〜 (副詞節)", a: "〜なので・〜するとき(副詞節になることも)" },
+  { q: "evidence for 〜", a: "〜の証拠" },
+  { q: "truck", a: "トラック" },
+  { q: "sociable", a: "社交的な" },
+  { q: "procession", a: "行列・行進" },
+  { q: "succession", a: "連続・継承" },
+  { q: "communal", a: "共同の・共有の" },
+  { q: "social", a: "社会的な" },
+  { q: "proceed", a: "進む・続行する" },
+  { q: "forage", a: "(食料を)あさる・探し回る" },
+  { q: "cosy / cozy", a: "心地良い・居心地のいい" },
+  { q: "flies = mosquito", a: "蚊・ハエ" },
+  { q: "overwhelm", a: "圧倒する" },
+  { q: "heatstroke", a: "熱中症" },
+  { q: "dehydration", a: "脱水症" },
+  { q: "agitate", a: "扇る・かき乱す" },
+  { q: "agitated", a: "興奮した・動揺した" },
+  { q: "take it to do", a: "〜することにする・〜と解釈する" },
+  { q: "dense warm mass", a: "密度の高く暖かい塊" },
+  { q: "hog", a: "豚" },
+  { q: "fog", a: "霧" },
+  { q: "squall", a: "スコール・突風" },
+  { q: "squirrel", a: "リス" },
+  { q: "quarrel", a: "口論" },
+  { q: "sparrow", a: "雀(スズメ)" },
+  { q: "swallow", a: "ツバメ／飲み込む" },
+  { q: "fry", a: "稚魚／揚げる" },
+  { q: "linger (long)", a: "長引く・なかなか去らない" },
+  { q: "regulate", a: "規制する・調整する" },
+  { q: "regular", a: "正常の・規則正しい" },
+  { q: "infer", a: "推測する・推論する" },
+  { q: "inferior to ⇔ superior to", a: "〜より劣る ⇔ 〜より優れる" },
+  { q: "pitch", a: "投げる・売り込む・ピッチ" },
+  { q: "robust", a: "頑健な・強壮な" },
+  { q: "in the first place", a: "そもそも・第一に" },
+  { q: "hydrologic", a: "水文学の・水の循環の" },
+  { q: "assure", a: "断定する・保証する・安心させる" },
+  { q: "presumed", a: "推定された" },
+  { q: "motor", a: "モーター・自動車の" },
+  { q: "outlook / prospect", a: "見通し・将来性" },
+  { q: "sincerely", a: "心からの・誠実に" },
+  { q: "sincerity", a: "誠実さ" },
+  { q: "lock in", a: "閉じ込める・固定する" },
+  { q: "fish / deer / sheep", a: "単複同形(複数形が同じ)" },
+  { q: "blue (形容詞)", a: "憂鬱な・気が滅入る" },
+  { q: "rear", a: "後部の／育てる" },
+  { q: "hold back O", a: "Oを抑える・引き止める" },
+  { q: "lean", a: "傾く・もたれる・痩せた" },
+  { q: "in repair", a: "手入れの良い・良好な状態で" },
+  { q: "out of repair", a: "手入れがされていない" },
+  { q: "wear", a: "摩耗・着用" },
+  { q: "blanket", a: "毛布／包む・覆う" },
+  { q: "one by one", a: "一つずつ・一人ずつ" },
+  { q: "oval", a: "楕円(の)" },
+  { q: "concerted", a: "協調した・申し合わせた" },
+  { q: "involve", a: "巻き込む・関与する" },
+  { q: "accordingly", a: "それに応じて・したがって" },
+  { q: "component", a: "構成要素・部品" },
+  { q: "linguistic", a: "言語の・言語学の" },
+  { q: "precede", a: "先に起こる・先行する" },
+  { q: "seize", a: "つかむ・押収する" },
+  { q: "cease", a: "やめる・止む" },
+  { q: "ancient", a: "古代の" },
+  { q: "tease", a: "からかう" },
+  { q: "be ignorant of", a: "〜を知らない" },
+  { q: "ignore", a: "無視する" },
+  { q: "leisure", a: "余暇" },
+  { q: "material world", a: "物質世界・俗世" },
+  { q: "technical arts", a: "工業技術" },
+  { q: "appeal to A", a: "Aに訴える・Aの心を動かす" },
+  { q: "approve", a: "承認する・賛成する" },
+  { q: "a body of A", a: "Aの集まり・大量のA" },
+  { q: "press / put an importance on 〜", a: "〜を強調する・〜を重視する" },
+  { q: "superior to", a: "〜より優れた" },
+  { q: "peer", a: "仲間・同等の人" },
+  { q: "peep", a: "のぞく" },
+  { q: "pair A with B", a: "AとBを組み合わせる" },
+  { q: "look to A", a: "Aを頼る・Aに期待する" },
+  { q: "diabetes", a: "糖尿病" },
+  { q: "asleep", a: "眠って" },
+  { q: "appear that 〜", a: "〜と見える・〜のようだ" },
+  { q: "apparent", a: "明らかな・見かけの" },
+  { q: "appearance", a: "外見・出現" },
+  { q: "fancy", a: "空想の・最高級な・気取った" },
+  { q: "the essence of A", a: "Aの本質" },
+  { q: "divert", a: "そらす・気を紛らわす" },
+  { q: "troublesome", a: "厄介な・面倒な" },
+  { q: "diverse", a: "多様な" },
+  { q: "criteria", a: "基準(criterionの複数形)" },
+  { q: "square", a: "平方・正方形／基準・公正な" },
+  { q: "ingenious", a: "巧妙な・独創的な" },
+  { q: "suspension", a: "一時停止・停学" },
+  { q: "cherish", a: "大事にする・心に抱く" },
+  { q: "accidentally", a: "偶然に・誤って" },
+  { q: "at hand", a: "手近に・近い" },
+  { q: "be subject to 〜", a: "〜に服従する・〜を受けやすい" },
+  { q: "still less", a: "ましてや〜ない(否定の後)" },
+  { q: "still more", a: "なおさら(肯定の後)" },
+  { q: "There is no good / point / sense in doing", a: "〜しても無駄だ・無意味だ" },
+  { q: "line (職業)", a: "職業・専門分野" },
+  { q: "air", a: "空気・雰囲気・外見" },
+  { q: "What line are you in?", a: "どんな職業についていますか？" },
+  { q: "I do + 動詞 (強調)", a: "本当に〜する(do/does/didで動詞を強調)" },
+  { q: "settle", a: "定住する・落ち着く・解決する" },
+  { q: "foster", a: "育てる・促進する・里親になる" },
+  { q: "allocate", a: "割り当てる・配分する" },
+  { q: "locate", a: "位置する・突き止める" },
+  { q: "ache", a: "痛む・痛み" },
+  { q: "headache", a: "頭痛" },
+  { q: "break – broke – broken", a: "壊す・破る(不規則変化)" },
+  { q: "brake", a: "ブレーキ" },
+  { q: "informative", a: "参考になる・有益な" },
+  { q: "convoluted", a: "複雑に絡みあった" },
+  { q: "odd", a: "奇妙な・奇数の" },
+  { q: "odds", a: "見込み・確率・賭け率" },
+  { q: "stay still / stand still", a: "じっとしている" },
+  { q: "What few 〜 you had", a: "なけなしの〜・わずかにあった〜" },
+  { q: "relief", a: "解放・安堵・救援" },
+  { q: "used to do", a: "以前は〜していた(現在はしていない)" },
+  { q: "lacking in A", a: "Aが不足している" },
+  { q: "the lack of A", a: "Aの不足" },
+  { q: "indifferent to 〜", a: "〜に無関心な" },
+  { q: "human being", a: "人間" },
+  { q: "breach of 〜", a: "〜の違反・破棄" },
+  { q: "enlighten", a: "啓発する・蒙を啓く" },
+  { q: "shallow", a: "浅い・浅はかな" },
+  { q: "classify A to/into B", a: "AをBに分類する" },
+  { q: "allocate A to B", a: "AをBに割り当てる" },
+  { q: "incidence", a: "発生率・発生" },
+  { q: "incident", a: "事件・出来事" },
+  { q: "trait", a: "特性・特徴" },
+  { q: "behavioral", a: "行動の・行動上の" },
+  { q: "in charge of A", a: "Aを担当して・Aの責任者で" },
+  { q: "would-be doctor", a: "医師志望者・医師になろうとする人" },
+  { q: "in shape", a: "体調が良い・調子が良い" },
+  { q: "out of shape", a: "体調不良・調子が悪い" },
+  { q: "necessarily", a: "必然的に・必ずしも" },
+  { q: "drive A to B", a: "AをBに追いやる・駆り立てる" },
+  { q: "virtue", a: "美徳・長所" },
+  { q: "vice", a: "悪徳・悪習" },
+  { q: "lawmaking", a: "立法・法律制定" },
+  { q: "murder", a: "殺人" },
+  { q: "in theory", a: "理論上は" },
+  { q: "decision making", a: "意思決定" },
+  { q: "happen to do", a: "たまたま〜する・偶然〜する" },
+  { q: "do well ⇔ do badly", a: "うまくいく ⇔ うまくいかない" },
+  { q: "a set of 〜", a: "一連の〜・一組の〜" },
+  { q: "afterwards", a: "後で・その後" },
+  { q: "evaluate", a: "評価する" },
+  { q: "evolve", a: "進化する・発展する" },
+  { q: "care about A", a: "Aを気にかける・Aに関心がある" },
+  { q: "join forces", a: "合流する・結束する" },
+  { q: "joint", a: "関節・共同の・接合部" },
+  { q: "get A across", a: "Aを理解させる・Aを伝える" },
+  { q: "pick up", a: "拾う・身につける・迎えに行く" },
+  { q: "in old age", a: "老後に・年を取ってから" },
+  { q: "sour", a: "酸っぱい・不機嫌な" },
+  { q: "soar", a: "急上昇する・舞い上がる" },
+  { q: "significantly", a: "顕著に・著しく" },
+  { q: "opposite to", a: "〜と反対側に" },
+  { q: "opposed to", a: "〜に反対して" },
+  { q: "contrary to A", a: "Aに反して" },
+  { q: "at a glance", a: "一目で" },
+  { q: "glimpse", a: "ちらりと見る・一瞥" },
+  { q: "at first sight", a: "一目で・一見して" },
+  { q: "at short notice", a: "急な連絡で・突然" },
+  { q: "at risk", a: "危険にさらされて" },
+  { q: "at issue", a: "問題となっている" },
+  { q: "throw out", a: "捨てる・解雇する" },
+  { q: "from A on", a: "A以降・Aから先" },
+  { q: "coin", a: "新語などを作り出す・硬貨" },
+  { q: "amount / large sum / wage", a: "金額／多額／賃金" },
+  { q: "far from", a: "〜どころか・全く〜でない" },
+  { q: "free from", a: "〜がない・〜から解放されて" },
+  { q: "1月〜12月", a: "January, February, March, April, May, June, July, August, September, October, November, December" },
+  { q: "for all 〜 / with all 〜", a: "〜にもかかわらず" },
+  { q: "despise", a: "軽蔑する" },
+  { q: "with a view to 〜ing", a: "〜するつもりで・〜する目的で" },
+  { q: "prospective", a: "見込みのある・将来の" },
+  { q: "thick ⇔ thin", a: "厚い ⇔ 薄い" },
+  { q: "angry at", a: "〜に怒っている" },
+  { q: "bothered at", a: "〜に悩まされる" },
+  { q: "mad at", a: "〜に腹を立てる" },
+  { q: "annoyed at", a: "〜にうんざりして・苛立って" },
+  { q: "irritated at", a: "〜にイライラした" },
+  { q: "indignant at", a: "〜に憤慨した" },
+  { q: "regretful", a: "後悔している・残念に思う" },
+  { q: "pleased at", a: "〜に喜んで" },
+  { q: "delighted at", a: "〜に大喜びして" },
+  { q: "astonished at", a: "〜に驚いて" },
+  { q: "depressed", a: "落ち込んで・憂鬱な" },
+  { q: "hardly any", a: "ほとんどない" },
+  { q: "hardly ever", a: "めったにない" },
+  { q: "in accordance with = according to", a: "〜に従って・〜に一致して" },
+  { q: "catch up with", a: "追いつく" },
+  { q: "keep up with", a: "(遅れずに)ついていく" },
+  { q: "out of the blue", a: "突然・思いがけず" },
+  { q: "aware of", a: "〜に気づいて" },
+  { q: "spread", a: "広がる・広める" },
+  { q: "regarded", a: "みなされる・尊敬される" },
+  { q: "stick - stuck - stuck", a: "くっつく・はまる・刺さる(不規則変化)" },
+  { q: "popular", a: "普及した・人気のある" },
+  { q: "must (名詞)", a: "〜しなければならないこと・必須のもの" },
+  { q: "put pressure on O to do", a: "Oに圧力をかけて〜させる" },
+  { q: "police (常に複数扱い)", a: "警察(常に複数扱い)" },
+  { q: "poultry / staff / cattle / people", a: "集合名詞・複数扱い" },
+  { q: "a family / families", a: "一つの家族／複数の家族" },
+  { q: "offspring", a: "子孫・(動物の)子" },
+  { q: "what few 〜", a: "なけなしの〜・少ないながらも全ての〜" },
+  { q: "at a time", a: "一度に・同時に" },
+  { q: "not only A but (also) B", a: "Aだけでなく Bも(動詞はBに合わせる)" },
+  { q: "A as well as B", a: "BだけでなくAも(動詞はAに合わせる)" },
+  { q: "either A or B (動詞)", a: "AかBのどちらか(動詞はBに合わせる)" },
+  { q: "someone (単数扱い)", a: "誰か・不特定の人(単数扱い)" },
+  { q: "human (可算名詞)", a: "人間(可算名詞)" },
+  { q: "stay still", a: "じっとしている・動かずにいる" },
+  { q: "allow OC", a: "OがCすることを許す" },
+  { q: "graduate school", a: "大学院" },
+  { q: "lead O to do", a: "Oに〜させる・〜するように導く" },
+  { q: "spare me a few minutes", a: "ちょっとお時間をください" },
+  { q: "amuse oneself with 〜", a: "〜で楽しむ・気晴らしする" },
+  { q: "approval", a: "承認・賛成" },
+  { q: "sharply", a: "鋭く・厳しく" },
+  { q: "assign A to B", a: "AをBに割り当てる" },
+  { q: "construct", a: "構築する・建設する" },
+  { q: "constitute", a: "構成する・設立する" },
+  { q: "preference", a: "好み・優先" },
+  { q: "psychological", a: "心理的な" },
+  { q: "thoroughly", a: "徹底的に・完全に" },
+  { q: "be identical to", a: "〜と全く同じである" },
+  { q: "orient", a: "方向付ける・東洋" },
+  { q: "automobile", a: "自動車" },
+  { q: "hereditary", a: "遺伝性の・世襲の" },
+  { q: "comply", a: "従う・応じる" },
+  { q: "preserved", a: "保存された" },
+  { q: "probably", a: "おそらく・たぶん" },
+  { q: "cult", a: "カルト・熱狂的崇拝" },
+  { q: "majority", a: "大多数・過半数" },
+  { q: "enlightened", a: "啓発された・賢明な" },
+  { q: "necessity", a: "必要性・必要なもの" },
+  { q: "border on 〜", a: "〜に隣接する・〜に近い状態である" },
+  { q: "morally condemn", a: "道徳的に非難する" },
+  { q: "legally torture", a: "合法的に拷問する" },
+  { q: "monger", a: "〜屋・〜を売る人(複合語で)" },
+  { q: "immoral", a: "不道徳な" },
+  { q: "lawmaker", a: "立法者・議員" },
+  { q: "confirm", a: "確認する・確証する" },
+  { q: "admit", a: "認める・入場を許可する" },
+  { q: "appreciate", a: "理解する・感謝する・評価する" },
+  { q: "accept", a: "受け入れる" },
+  { q: "view", a: "見方・意見・眺め" },
+  { q: "common good", a: "公共の利益・共通の善" },
+  { q: "prospect", a: "見込み・展望" },
+  { q: "counsel", a: "忠告・相談・弁護士" },
+  { q: "single", a: "単一の・独身の" },
+  { q: "singular", a: "並外れた・単数の・奇妙な" },
+  { q: "singularly", a: "並外れて・著しく" },
+  { q: "self-deceit / self-deception", a: "自己欺瞞" },
+  { q: "convenient", a: "便利な・都合のよい" },
+  { q: "since (時)", a: "〜以来・〜だから" },
+  { q: "even / yet / still (副詞)", a: "前を強調する副詞(比較級と一緒に「さらに〜」)" },
+  { q: "each + 単数名詞", a: "それぞれの・各々の(後ろは単数)" },
+  { q: "Both 〜 ⇔ each", a: "両方(2つとも) ⇔ それぞれ(ニュアンスが強い)" },
+  { q: "account for", a: "〜を占める・〜を説明する" },
+  { q: "single use", a: "使い捨て" },
+  { q: "by 〜ing = 〜ing (分詞構文)", a: "〜することで(分詞構文的に同義)" },
+  { q: "annoying ⇔ dull", a: "うっとうしい ⇔ つまらない" },
+  { q: "clarify", a: "明確にする" },
+  { q: "certain 〜", a: "ある〜・特定の〜" },
+  { q: "hush", a: "静かにする・黙る" },
+  { q: "harsh", a: "厳しい・荒い" },
+  { q: "temperate", a: "温暖な・節度のある" },
+  { q: "A is good for B", a: "AはBに有効/有益だ" },
+  { q: "a natural", a: "自然体の人・生まれつきの天才" },
+  { q: "free place", a: "学費免除・無料の席" },
+  { q: "interview", a: "面接・インタビュー" },
+  { q: "annotation", a: "注釈" },
+  { q: "index", a: "索引・指数" },
+  { q: "be engaged in 〜", a: "〜に従事する・〜で忙しい(仕事)" },
+  { q: "engage with 〜", a: "〜に取り組む・関わる(能動的)" },
+  { q: "plot", a: "筋書き・陰謀・敷地" },
+  { q: "present (動詞)", a: "表示する・提示する・贈呈する" },
+  { q: "repeat – repetition", a: "繰り返す – 繰り返し" },
+  { q: "extend – extensive", a: "拡張する – 広範囲の・大規模な" },
+  { q: "farther", a: "もっと遠い(物理的距離)" },
+  { q: "further", a: "更なる・さらに(程度・抽象的)" },
+  { q: "meet", a: "合致する・出会う・満たす" },
+  { q: "contempt", a: "軽蔑・蔑み" },
+  { q: "tempt", a: "誘惑する" },
+  { q: "one rejection after another", a: "相次ぐ不合格・次々と拒絶" },
+  { q: "It was not bad enough", a: "十分には悪くなかった／(口語で)もうこれ以上ないほど悪い" },
+  { q: "for yet", a: "しばらくの間・もう少し" },
+  { q: "worry", a: "心配する・悩む" },
+  { q: "ask (再掲)", a: "尋ねる・頼む" },
+  { q: "self-deceit", a: "自己欺瞞・自分を欺くこと" },
+  { q: "self-deception", a: "自己欺瞞" },
+  { q: "convention vs convenient", a: "convention=慣習／convenient=便利な(混同注意)" },
+  { q: "even (副詞)", a: "〜さえ・(比較級と)さらに" },
+  { q: "still (副詞)", a: "まだ・(比較級と)さらに" },
+  { q: "former", a: "前者・前の" },
+  { q: "didn't attend the whole council", a: "会議に全く出席しなかった(部分否定ではなく全否定)" },
+  { q: "increase the level", a: "水準・濃度を上げる" },
+  { q: "annoying", a: "うっとうしい・迷惑な" },
+  { q: "dull", a: "つまらない・鈍い" },
+  { q: "view 評価", a: "見方・評価・意見" },
+  { q: "perspective vs prospect", a: "perspective=観点／prospect=見込み(混同注意)" },
+  { q: "ask 相談", a: "尋ねる・相談する" },
+  { q: "convention 因習・大会", a: "convention=因習・大会・慣習・条約" },
+  { q: "con- 接頭辞", a: "con-=共に・完全に(con/com-で始まる単語が多数)" },
+  { q: "0.45g ← 1g", a: "(化学計算のメモ)0.45gは1gより少ない" },
+  { q: "300℃ / 1.5×10⁴ / 0.45 / 10⁻⁴ / 0.85×10⁻⁴", a: "(化学計算のメモ)圧力・体積・温度関連の数値" },
+  { q: "n = 5 / 8.3 × 10⁻³", a: "(化学計算のメモ)気体定数を使った物質量計算" },
+  { q: "approve vs prove", a: "approve=承認する／prove=証明する(混同注意)" },
+  { q: "lawmaking process", a: "立法過程" },
+  { q: "torture", a: "拷問(する)・苦しめる" },
+  { q: "condemn", a: "非難する・有罪判決を下す" },
+  { q: "morally vs legally", a: "morally=道徳的に／legally=合法的に・法的に" },
+  { q: "be border on death (he is)", a: "彼はほとんど死に瀕した状態である" },
+  { q: "slovenly", a: "だらしない・ずさんな" },
+  { q: "immoral vs moral", a: "immoral=不道徳な ⇔ moral=道徳的な" },
+  { q: "majority vs minority", a: "majority=大多数 ⇔ minority=少数派" },
+  { q: "enlightened majority", a: "啓発された多数派" },
+  { q: "necessarily vs necessity", a: "necessarily=必然的に(副詞)／necessity=必要性(名詞)" },
+  { q: "shallow vs deep", a: "shallow=浅い ⇔ deep=深い" },
+  { q: "prejudiced them", a: "彼らに偏見を持たせた・先入観を与えた" },
+  { q: "stick (動詞活用)", a: "stick - stuck - stuck(くっつく・はまる)" },
+  { q: "regarded as", a: "〜とみなされる" },
+  { q: "spread - spread - spread", a: "広がる・広める(過去・過去分詞も同形)" },
+  { q: "informative material", a: "参考になる資料" },
+  { q: "put pressure on O", a: "Oに圧力をかける" },
+  { q: "poultry", a: "家禽・鶏肉(集合名詞)" },
+  { q: "staff (集合名詞)", a: "職員・スタッフ(集合的に複数扱い)" },
+  { q: "cattle", a: "牛(常に複数扱い)" },
+  { q: "people (複数扱い)", a: "人々(常に複数扱い)" },
+  { q: "winder / render OC", a: "render OC=OをCの状態にする" },
+  { q: "share vs spare vs separate", a: "share=分かち合う／spare=割く／separate=分ける" },
+  { q: "psychological state", a: "心理状態" },
+  { q: "orient vs Orient", a: "orient=方向付ける／the Orient=東洋" },
+  { q: "similar to", a: "〜に似た" },
+  { q: "motor vs automobile", a: "motor=モーター／automobile=自動車(同義で使われる)" },
+  { q: "hereditary disease", a: "遺伝性疾患" },
+  { q: "predict vs comply", a: "predict=予言する／comply=従う(混同注意)" },
+  { q: "preserved vs preserve", a: "preserved=保存された／preserve=保存する・保護する" },
+  { q: "probably vs probability", a: "probably=おそらく(副詞)／probability=確率(名詞)" },
+  { q: "assume vs presume", a: "assume=想定する／presume=(根拠あり)推定する" },
+  { q: "ce / se 接頭辞の使い分け", a: "cease=やめる／seize=つかむ(発音・意味注意)" },
+  { q: "appreciate vs appreciation", a: "appreciate=理解・感謝する／appreciation=理解・感謝" },
+  { q: "view 意見・評価", a: "見解・評価・意見" },
+  { q: "lawmaking common good", a: "立法と公共の利益" },
+  { q: "counsel vs council", a: "counsel=忠告／council=評議会(混同注意)" },
+  { q: "worry / ask 相談", a: "worry=心配する／ask=尋ねる・頼む" },
+  { q: "singular vs singularly", a: "singular=並外れた(形容詞)／singularly=並外れて(副詞)" },
+  { q: "self-deceit / self-deception 違い", a: "ほぼ同義(自己欺瞞)" },
+  { q: "practice 実践", a: "実践的なこと・慣習・営業" },
+  { q: "convention 大会・因習", a: "大会・慣習・条約・しきたり" },
+  { q: "convenient vs convention", a: "convenient=便利／convention=慣習(混同注意)" },
+  { q: "since 〜 (理由)", a: "〜なので・〜以来" },
+  { q: "at once = (all) at once", a: "一斉に・同時に・直ちに" },
+  { q: "former ⇔ latter (再掲)", a: "前者(2つのうち最初) ⇔ 後者(2つのうち最後)" },
+  { q: "each (単数扱い)", a: "それぞれ・各々(後ろは単数名詞・動詞も単数)" },
+  { q: "Both vs each (使い分け)", a: "Both=両方共／each=それぞれ(個別性が強い)" },
+  { q: "by 〜ing", a: "〜することによって(分詞構文ともほぼ同義)" },
+  { q: "certain (再掲)", a: "ある・特定の・確信して" },
+  { q: "hush vs harsh", a: "hush=静かにする／harsh=厳しい(混同注意)" },
+  { q: "temperate vs temperature", a: "temperate=温暖な／temperature=温度(混同注意)" },
+  { q: "めづ（古文）", a: "愛しく感じる・心が惹かれる・ほめる・かわいがる" },
+  { q: "もどらふ／もつらふ（古文）", a: "恋い焦がれる・つらがる" },
+  { q: "あくがる（古文）", a: "恋で上の空になる・感動する・さまよう" },
+  { q: "かなしく（古文・恋の文脈）", a: "恋の妻・通い婚・他妻への嫉妬" },
+  { q: "表に表れる・ダサい（古文ニュアンス）", a: "表面に出てしまう・野暮ったい" },
+  { q: "御覚え（古文）", a: "評判・寵愛" },
+  { q: "ときめく（古文）", a: "寵愛を受ける・時流に乗って栄える" },
+  { q: "おぼえ（古文）", a: "評判・寵愛・信頼" },
+  { q: "かしづく（古文）", a: "大切に育てる・世話する・寵愛する" },
+  { q: "平治の乱・保元の乱", a: "平安末期の内乱／平家物語の背景" },
+  { q: "古事記・日本書紀・万葉集", a: "上代(奈良時代以前)の代表的作品" },
+  { q: "平家物語・太平記・義経記", a: "中世の軍記物語の代表作" },
+  { q: "形容詞・形容動詞", a: "古文の用言の活用種類(ク活用・シク活用／ナリ活用・タリ活用)" },
+  { q: "まうしめす（古文）", a: "申し上げる(謙譲の最高敬語)" },
+  { q: "いふ → 申す", a: "「言う」の謙譲語" },
+  { q: "見る（敬語）", a: "「見る」の敬語(御覧ず=尊敬／拝見す=謙譲)" },
+  { q: "流罪 ⇔ 宮中・内裏", a: "反体制 ⇔ 体制自体(古典文学の対比)" },
+  { q: "古典常識：時代と文化", a: "平安(800〜1200)=文化力・貴族／鎌倉(〜1333)=武力・武士／江戸(1600〜1868)=文化・町人＋武士" },
+  { q: "さもあらぞる（古文）", a: "そうでもない・そうではあるまい" },
+  { q: "以前（古文）", a: "以前・かつて" },
+  { q: "そのようでは（古文）", a: "そのようでは・そうしては" },
+  { q: "玉（古文）", a: "美しさ・玉のような美しいもの" },
+  { q: "今はありつる → もありし → 失せにけり", a: "(過去の様子から)〜となる・無くなってしまった" },
+  { q: "小野道風", a: "平安時代の能書家・三跡の一人" },
+  { q: "藤原行成", a: "平安時代の能書家・三跡の一人" },
+  { q: "藤原佐理", a: "平安時代の能書家・三跡の一人" },
+  { q: "三跡（三蹟）", a: "小野道風・藤原佐理・藤原行成の三人" },
+  { q: "露頭中・覆頭中（古文）", a: "頭を覆って・露わな状態で" },
+  { q: "はかなくなる（古文）", a: "あっけなく死ぬ・亡くなる" },
+  { q: "わびし（古文）", a: "つらい・寂しい・苦しい・心細い" },
+  { q: "心〜（古文）", a: "恋しい・苦しい状態を表す" },
+  { q: "乳母（めのと）", a: "主人の子に乳を与え育てる人" },
+  { q: "乳母子（めのとご）", a: "乳兄弟・主人の子と一緒に育つ" },
+  { q: "乳兄弟", a: "同じ乳母に育てられた仲の良い間柄" },
+  { q: "ライバルを比べる教育係", a: "古典文学に登場する乳母・教育係の役割" },
+  { q: "軍記（古文）", a: "笑う・思われる(軍記物語特有の語彙)" },
+  { q: "つ・けり・たり（古文助動詞）", a: "完了・過去・存続を表す助動詞" },
+  { q: "完了「ぬ」", a: "完了の助動詞(自然完了・確述)" },
+  { q: "順接仮定「とも」", a: "たとえ〜としても(逆接仮定)" },
+  { q: "ものの・も（古文接続助詞）", a: "〜けれども(逆接)" },
+  { q: "やかは・は（古文）", a: "反語を表す係助詞" },
+  { q: "様女・嬉（古文）", a: "様子・喜びを表す語" },
+  { q: "さわぐ（古文）", a: "大声を出す・慌てる・騒ぐ" },
+  { q: "ののしる（古文）", a: "大声で騒ぐ・評判になる" },
+  { q: "おどろく（古文）", a: "目覚める・驚く・はっと気づく" },
+  { q: "あさまし（古文）", a: "(良い意味でも悪い意味でも)驚く・嘆かわしい・情けない・興ざめ" },
+  { q: "御椅子あけさぶ（古文）", a: "御椅子を空けて差し上げる" },
+  { q: "あるじの大臣", a: "宴を主催する大臣・主人役の大臣" },
+  { q: "あの約束してくださったと", a: "あの約束を頼みにして" },
+  { q: "あつにする（古文）", a: "期待する・好ましがる・頼みにする" },
+  { q: "かの数め給ひして", a: "あの方が褒めてくださって" },
+  { q: "はかなくおづらひて", a: "あっけなく病気になって・死んでしまって" },
+  { q: "吉田兼好（卜部兼好）", a: "鎌倉末期の歌人・随筆家『徒然草』の作者" },
+  { q: "今はもまさりければ", a: "今はそうでもなかったので" },
+  { q: "召し返されて", a: "呼び戻されて" },
+  { q: "ありがたし（古文）", a: "めったにない・生きるのが辛い・立派な" },
+  { q: "かなし（古文）", a: "いとしい・あわれ・切ない・気の毒" },
+  { q: "わびしけよし（古文）", a: "つく・心細い・心配だ" },
+  { q: "わびし（再・古文）", a: "(心or体が)厳しい・難儀な・つらい" },
+  { q: "知る（古文）", a: "①知る／②治める／③自然と・自発的に" },
+  { q: "宮殿・人or建物（古文）", a: "「宮」は宮殿・人・建物のいずれも指す" },
+  { q: "いかびとなり（古文）", a: "なんとなく〜らしい・どことなく〜だ" },
+  { q: "しづか・落ち着いた心（古文）", a: "静かで落ち着いた心" },
+  { q: "何ともしき事なく", a: "これといったこともなく" },
+  { q: "手放な・おもしろし（古文）", a: "風情深い・美しい" },
+  { q: "かしづく（再・古文）", a: "大切に育てる・仕える" },
+  { q: "蔵人（くろうど）", a: "天皇の側近・秘書役の官職" },
+  { q: "ものし（古文）", a: "(場所に)いらっしゃる・〜にいる" },
+  { q: "たより（古文）", a: "手紙・機会・つて・知らせ" },
+  { q: "折焚柴の記", a: "新井白石の自叙伝・回想録" },
+  { q: "になし（古文）", a: "二つとない・この上ない・大層〜だ" },
+  { q: "あつし（古文助動詞「る・らる」）", a: "受身・可能・自発・尊敬の意味を持つ" },
+  { q: "いふまなし（古文）", a: "言うまでもない" },
+  { q: "かほしのび（古文）", a: "〜ところ・〜あたり" },
+  { q: "ひろく（古文）", a: "見識を深める・はえる" },
+  { q: "おとまし（古文）", a: "衰える・劣る" },
+  { q: "あやし（古文）", a: "①(形容詞)賤しい・身分が低い／②(動詞)怪しむ・不思議に思う" },
+  { q: "あやしがる（古文）", a: "不思議に思う・怪しむ" },
+  { q: "ゐる（居る／率る）（古文）", a: "①居る(動かない・立ち止まる・座る)／②率いる" },
+  { q: "形容詞→形容動詞→動詞→名詞", a: "古文の品詞分類・派生の流れ" },
+  { q: "参らす（古文）", a: "参上する／差し上げる・申し上げる(謙譲)" },
+  { q: "さてしもあるべきこと（古文）", a: "そのままの状態にしておくわけにはいかない" },
+  { q: "発心の思ひ", a: "出家しようとする思い" },
+  { q: "発起心（古文）", a: "何かを始めようと思う心・出家しようと思い始める心" },
+  { q: "いたし（古文助動詞）", a: "使役・尊敬の意味を持つ" },
+  { q: "むず・むずる・むずれ", a: "推量・意志の助動詞「むず」の活用" },
+  { q: "べき → 動詞なし／推量", a: "助動詞「べし」は終止形接続(動詞の活用に依存しない)・推量や当然" },
+  { q: "をいによばなり（古文）", a: "主軸となる・中心となる" },
+  { q: "しがな・もがな", a: "願望を表す終助詞" },
+  { q: "なまし（古文）", a: "完了「ぬ」＋反実仮想「まし」" },
+  { q: "てまし（古文）", a: "完了「つ」＋反実仮想「まし」" },
+  { q: "てむ（古文）", a: "完了「つ」＋推量「む」" },
+  { q: "なむ（古文）", a: "完了「ぬ」＋推量「む」" },
+  { q: "らむ（古文）", a: "完了「り」＋推量「む」／現在推量・現在婉曲" },
+  { q: "むずたなる（古文）", a: "〜ようだ" },
+  { q: "まし・まほし／まじ", a: "願望(まほし)／打消推量・打消意志(まじ・終止形接続)" },
+  { q: "現在推量・現在婉曲", a: "「らむ」が表す意味" },
+  { q: "笑ふなり（古文）", a: "笑っているようだ(伝聞推定の「なり」)" },
+  { q: "静かなり（古文）", a: "静かである(形容動詞ナリ活用)" },
+  { q: "完了「てしまふ」「てほっん」（口語訳）", a: "〜てしまった" },
+  { q: "存続「ている」「てある」", a: "「たり」「り」の口語訳" },
+  { q: "参らす（再・古文）", a: "申し上げる・差し上げる(謙譲)" },
+  { q: "口えく（古文）", a: "しつこく言う" },
+  { q: "心づけなし（古文）", a: "風情がない・思いやりがない" },
+  { q: "きこゆ（古文）", a: "申し上げる(謙譲)・評判である" },
+  { q: "きこえす（古文）", a: "申し上げる(謙譲)" },
+  { q: "まうしめす（再・古文）", a: "お認めになる・お聞きになる(最高敬語)" },
+  { q: "起承だかびゃなくて実行", a: "計画ではなく実行(古文の文脈)" },
+  { q: "いざ、給らむ", a: "さあ、参りましょう" },
+  { q: "ほろて or 行かむ", a: "流行る・行く(意志)" },
+  { q: "かしもらひせむ", a: "ほめてもらえるようにしよう" },
+  { q: "世覚え（古文）", a: "評判・人望" },
+  { q: "きこえ（古文）", a: "評判" },
+  { q: "おぼえ（再・古文）", a: "評判・信頼・寵愛" },
+  { q: "ときめく（再・古文）", a: "華やかに栄える・寵愛を受ける" },
+  { q: "おもばし（古文）", a: "名誉である" },
+  { q: "悪心（古文）", a: "煩悩・謀反心・邪悪な心" },
+  { q: "左衛門督（さえもんのかみ）", a: "誠信(藤原誠信)・左衛門府の長官" },
+  { q: "AにOR寄る", a: "Aに寄る・Aに関わる" },
+  { q: "こと人（古文）", a: "他人・別の人" },
+  { q: "あぜて（古文）", a: "特別に・おもむき・ことさら" },
+];
+
+let questions = [];
+let currentIndex = 0;
+let isFlipped = false;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function render() {
+  if (currentIndex >= questions.length) {
+    document.getElementById('cardArea').innerHTML = `
+      <div class="done">
+        <h2>Finis.</h2>
+        <p>全${questions.length}問 終了しました</p>
+        <button class="btn btn-next" onclick="restart()">RESTART</button>
+      </div>`;
+    document.getElementById('counter').textContent = `${questions.length} / ${questions.length}`;
+    document.getElementById('progressBar').style.width = '100%';
+    return;
+  }
+  const q = questions[currentIndex];
+  document.getElementById('frontContent').textContent = q.q;
+  document.getElementById('backContent').textContent = q.a;
+  document.getElementById('counter').textContent = `${currentIndex + 1} / ${questions.length}`;
+  document.getElementById('progressBar').style.width = `${(currentIndex / questions.length) * 100}%`;
+  isFlipped = false;
+  document.getElementById('card').classList.remove('flipped');
+}
+
+function flipOrNext() {
+  if (currentIndex >= questions.length) return;
+  if (!isFlipped) {
+    isFlipped = true;
+    document.getElementById('card').classList.add('flipped');
+  } else {
+    currentIndex++;
+    render();
+  }
+}
+
+function next() {
+  if (currentIndex >= questions.length) return;
+  currentIndex++;
+  render();
+}
+
+function restart() {
+  questions = shuffle(allQuestions);
+  currentIndex = 0;
+  document.getElementById('cardArea').innerHTML = `
+    <div class="card" id="card">
+      <div class="face face-front">
+        <div class="label">Question</div>
+        <div class="content" id="frontContent"></div>
+        <div class="hint">tap to reveal</div>
+      </div>
+      <div class="face face-back">
+        <div class="label">Answer</div>
+        <div class="content" id="backContent"></div>
+        <div class="hint">tap for next</div>
+      </div>
+    </div>`;
+  document.getElementById('cardArea').addEventListener('click', flipOrNext);
+  render();
+}
+
+document.getElementById('cardArea').addEventListener('click', flipOrNext);
+document.getElementById('shuffleBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  restart();
+});
+document.getElementById('nextBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  next();
+});
+
+questions = shuffle(allQuestions);
+render();
+
+// Service Worker登録（オフライン対応）
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW登録失敗:', err));
+  });
+}
+</script>
+</body>
+</html>
